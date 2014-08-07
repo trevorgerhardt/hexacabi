@@ -1,0 +1,8 @@
+{
+  "name": "cabi-data",
+  "dependencies": {
+    "node-xml-lite": "0.0.3",
+    "progress": "^1.1.7",
+    "split": "^0.3.0"
+  }
+}
