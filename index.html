@@ -5,41 +5,37 @@
     <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/dc/1.6.0/dc.css">
     <link rel="stylesheet" href="//api.tiles.mapbox.com/mapbox.js/v1.6.4/mapbox.css">
     <style type="text/css">
-      #data-table {
-        width: 100%;
+      body {
         height: 100%;
+        width: 100%;
       }
 
       #hexbin-map {
         width: 100%;
-        height: 300px;
+        height: 500px;
         border-bottom: 1px solid #ddd;
         margin-bottom: 10px;
       }
 
-      .map {
-        position: relative;
-        overflow: hidden;
+      #stations {
+        height: 300px;
+        overflow-y: scroll;
       }
 
-      .layer {
-        position: absolute;
+      #origins {
+        color: #3182bd;
       }
 
-      .tile {
-        pointer-events: none;
-        position: absolute;
-        width: 256px;
-        height: 256px;
+      #destinations {
+        color: #e6550d;
       }
 
-      .stations {
-        width: 100%;
-        height: 100%;
+      .origin {
+        background-color: #3182bd;
       }
 
-      .station {
-        opacity: 0.5;
+      .destination {
+        background-color: #e6550d;
       }
     </style>
   <body>
@@ -65,7 +61,7 @@
           <div class="col-sm-4" id="hours-chart">
             <strong>Start Time</strong>
             <span class="filter"></span>
-            <a class="reset" href="javascript:charts.hours.filterAll();dc.redrawAll('journeys');" style="display:none;">reset</a>
+            <a class="reset" href="javascript:charts.hour.filterAll();dc.redrawAll('journeys');" style="display:none;">reset</a>
             <div class="clearfix"></div>
           </div>
           <div class="col-sm-4" id="duration-chart">
@@ -76,6 +72,27 @@
           </div>
         </div>
         <div class="row">
+          <div class="col-sm-6">
+            <strong>Filter stations by</strong>
+            <div class="list-group">
+              <div class="checkbox list-group-item">
+                <label id="origins">
+                  <input type="checkbox" checked> Origins
+                </label>
+              </div>
+              <div class="checkbox list-group-item">
+                <label id="destinations">
+                  <input type="checkbox"> Destinations
+                </label>
+              </div>
+            </div>
+          </div>
+          <div class="col-sm-6">
+            <strong>Stations <a href="javascript:selectAll(true)">select</a>/<a href="javascript:selectAll(false)">deselect</a> all</strong>
+            <div id="stations" class="list-group"></div>
+          </div>
+        </div>
+        <div class="row">
           <div class="col-sm-12">
             <table id="data-table" class="table table-condensed table-hover"></table>
           </div>
@@ -83,6 +100,7 @@
       </div>
     </div>
 
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/2.1.1/jquery.min.js"></script>
     <script src="//api.tiles.mapbox.com/mapbox.js/v1.6.4/mapbox.js"></script>
     <script src="//cdnjs.cloudflare.com/ajax/libs/spin.js/2.0.1/spin.min.js"></script>
     <script src="//cdnjs.cloudflare.com/ajax/libs/d3/3.4.11/d3.js"></script>
@@ -100,62 +118,87 @@
       var height = 150, width = 360;
 
       // Globals
-      var charts = {}, dimensions, journeys, map, stations, stationsA = [];
+      var charts = {}, dimensions, currentDimension, journeys, json, map, stations, stationsA = [];
 
       var spinner = new Spinner().spin();
       document.body.appendChild(spinner.el);
 
-      d3.json('/data/stations.json', function(err, json) {
+      d3.json('/data/stations.json', function(err, data) {
         if (err) return window.alert(err);
-        stations = json;
+        stations = data;
 
         for (var i in stations) stationsA.push(stations[i]);
 
-        // After displaying, setup the map
-        map = L.mapbox.map('map', 'conveyal.gepida3i', {
-          touchZoom: false,
-          scrollWheelZoom: false
-        }).setView([38.8399874, -77.0911667], 11);
+        d3.csv('/data/2014-1st-quarter.processed.csv', parseCSVRow, function(err, rows) {
+          if (err) return window.alert(err);
 
-        // Generate Hexbins
-        map.on('viewreset', function() {
-          generateHexbins(map, dimensions);
+          json = rows;
+
+          document.getElementById('viz').style.display = 'block';
+
+          // After displaying, setup the map
+          map = L.mapbox.map('hexbin-map', 'conveyal.gepida3i', {
+            touchZoom: false,
+            scrollWheelZoom: false
+          }).setView([38.899316235331575, -77.0309829711914], 11);
+
+          // Generate Hexbins
+          map.on('viewreset', function() {
+            generateHexbins();
+          });
+
+          processJson();
+
+          // Attach to dc.js renderLet
+          charts.month.renderlet(function(c) {
+            dc.events.trigger(function() {
+              // Redraw the hexbins
+              generateHexbins();
+
+              // Count stations
+              countStations();
+            });
+          });
+
+          stationify(stations);
+          countStations();
+
+          spinner.stop();
         });
-
-        d3.csv('/data/2014-1st-quarter.processed.csv', parseCSVRow, processRows);
       });
 
-      function processRows(err, rows) {
-        if (err) return window.alert(err);
-
-        journeys = crossfilter(rows);
+      function processJson() {
+        journeys = crossfilter(json);
         dimensions = createDimensions(journeys);
+
+        // Current dimension
+        currentDimension = dimensions.date;
 
         charts.count = dc.dataCount('#data-count', 'journeys')
           .dimension(journeys)
-          .group(dimensions.all);
+          .group(journeys.groupAll());
 
         charts.month = dc.pieChart('#month-chart', 'journeys')
           .height(height)
           .label(function(d) { return months[d.data.key]; })
-          .dimension(dimensions.byMonth)
-          .group(dimensions.byMonth.group());
+          .dimension(dimensions.month)
+          .group(dimensions.month.group());
 
         charts.day = dc.pieChart('#day-chart', 'journeys')
           .height(height)
           .label(function(d) { return daysOfWeek[d.data.key]; })
-          .dimension(dimensions.byDay)
-          .group(dimensions.byDay.group());
+          .dimension(dimensions.day)
+          .group(dimensions.day.group());
 
-        charts.hours = dc.barChart('#hours-chart', 'journeys')
+        charts.hour = dc.barChart('#hours-chart', 'journeys')
           .height(height)
           .width(width)
           .margins(margins)
           .x(d3.scale.linear().domain([0, 23]))
           .elasticY(true)
           .round(Math.round)
-          .dimension(dimensions.byHour)
-          .group(dimensions.byHour.group());
+          .dimension(dimensions.hour)
+          .group(dimensions.hour.group());
 
         charts.duration = dc.lineChart('#duration-chart', 'journeys')
           .height(height)
@@ -164,42 +207,28 @@
           .x(d3.scale.linear().domain([0, 60, 200]))
           .elasticY(true)
           .round(Math.round)
-          .dimension(dimensions.byDuration)
-          .group(dimensions.byDuration.group(function(d) { return Math.floor(d); }));
+          .dimension(dimensions.duration)
+          .group(dimensions.duration.group(function(d) { return Math.floor(d); }));
 
-        /* Data table */
-        charts.table = dc.dataTable('#data-table', 'journeys')
-          .columns(getTableColumns())
-          .dimension(dimensions.byDate)
-          .group(function(d) {
-            return d.start_time.toDateString();
-          })
-          .sortBy(function(d) {
-            return d.start_time.valueOf();
-          })
-          .size(25);
+        for (var i in charts) {
+          charts[i].on('filtered', function() {
+            currentDimension = dimensions[i];
+          });
+        }
 
         dc.renderAll('journeys');
-        document.getElementById('viz').style.display = 'block';
 
-        map = mapTiles(document.getElementById('hexbin-map'))
-        var stationBounds = getStationBounds(stations);
-        map.to(stationBounds[0], stationBounds[1]);
-
-        //
-        projectStationsToMap(stations, map);
-
-        spinner.stop();
       }
 
       function createDimensions(j) {
         return {
-          all: j.groupAll(),
-          byDate: j.dimension(function(d) { return d.start_time.valueOf(); }),
-          byDay: j.dimension(function(d) { return d.start_time.getDay(); }),
-          byDuration: j.dimension(function(d) { return d.duration / 60; }),
-          byHour: j.dimension(function(d) { return d.start_time.getHours(); }),
-          byMonth: j.dimension(function(d) { return d.start_time.getMonth(); })
+          date: j.dimension(function(d) { return d.start_time.valueOf(); }),
+          day: j.dimension(function(d) { return d.start_time.getDay(); }),
+          duration: j.dimension(function(d) { return d.duration / 60; }),
+          hour: j.dimension(function(d) { return d.start_time.getHours(); }),
+          month: j.dimension(function(d) { return d.start_time.getMonth(); }),
+          start_terminal: j.dimension(function(d) { return d.start_terminal; }),
+          end_terminal: j.dimension(function(d) { return d.end_terminal; })
         };
       }
 
@@ -236,42 +265,143 @@
         ]
       }
 
-      function getStationBounds(stations) {
-        // For DC area
-        var nw = [ Infinity, -Infinity ];
-        var se = [ -Infinity, Infinity ];
+      var _polys = [];
+      function generateHexbins() {
+        _polys.forEach(map.removeLayer.bind(map));
 
-        for (var terminal in stations) {
-          var ll = stations[terminal].coords;
-          if (ll[0] < nw[0]) nw[0] = ll[0];
-          if (ll[1] > nw[1]) nw[1] = ll[1];
-          if (ll[0] > se[0]) se[0] = ll[0];
-          if (ll[1] < se[1]) se[1] = ll[1];
-        }
+        var bounds = map.getBounds();
+        var $map = document.getElementById('hexbin-map');
+        var rmax = (bounds.getNorth() - bounds.getSouth()) / 25;
 
-        return [ nw, se ];
+        // Allllll
+        var data = currentDimension.top(Infinity);
+
+        // Generate hexbins
+        var originsAndDestinations = data.map(function(d) {
+          var station = stations[d.start_terminal];
+          if (!station) return false;
+          var j = stations[d.start_terminal].coords;
+          j.origin = 1;
+          return j;
+        }).concat(data.map(function(d) {
+          var station = stations[d.end_terminal];
+          if (!station) return false;
+          var j = stations[d.end_terminal].coords;
+          j.origin = -1;
+          return j;
+        }));
+
+        originsAndDestinations = originsAndDestinations.filter(function(a) { return a; });
+
+        var hexbins = hexbin(originsAndDestinations, {
+          cscale: function(bs) {
+            var min = Infinity, max = -Infinity;
+            for (var i = 0; i < bs.length; i++) {
+              var b = bs[i];
+              b.color = 0;
+              for (var j = 0; j < b.length; j++) {
+                b.color += b[j].origin;
+              }
+              if (b.color > max) max = b.color;
+              if (b.color < min) min = b.color;
+            }
+            return d3.scale.sqrt()
+              .domain([ min, max ])
+              .range([ '#e6550d', '#3182bd' ]);
+          },
+          rscale: function(bs) {
+            return d3.scale.log()
+              .domain([ 1, d3.max(bs, function(b) { return b.length; }) || 1 ])
+              .range([ rmax / 3, rmax ]);
+          },
+          height: $map.clientHeight,
+          rmax: rmax,
+          width: $map.clientWidth
+        });
+
+        _polys = hexbins.map(function(d) {
+          return L.polygon(d.coords, {
+            stroke: true,
+            weight: 1,
+            color: '#e5e5e5',
+            fill: true,
+            fillOpacity: 0.75,
+            fillColor: d.color
+          }).addTo(map);
+        });
       }
 
-      function projectStationsToMap(stations, map) {
-        /*var el = d3.select('.map')
-          .insert('svg', '.layer')
-          .attr('class', 'stations');
+      function stationify(stations) {
+        var $destinations = $('#destinations input');
+        var $origins = $('#origins input');
+        var $stations = $('#stations');
 
-        for (var i = 0; i < stationsA.length; i++) stationsA[i].projected = map.projection(stationsA[i].coords);
+        for (var i in stations) {
+          $stations.append(
+            '<div class="checkbox list-group-item" id="' + i + '">' +
+              '<span class="badge destination"></span>' +
+              '<span class="badge origin"></span>' +
+              '<label>' +
+                '<input type="checkbox" value="' + i + '" checked>' + stations[i].name +
+              '</label>' +
+            '</div>');
+        }
 
-        el.selectAll('.station')
-          .data(stationsA, function(d) { return d.terminal; })
-          .enter()
-          .append('circle')
-          .attr('class', 'station')
-          .attr('r', '2')
-          .attr('cx', function(d) {
-            return d.projected[0];
-          })
-          .attr('cy', function(d) {
-            return d.projected[1];
-          });*/
+        $('input').on('change', function() { updateStations(); });
+      }
 
+      function selectAll(v) {
+        $('#stations input').prop('checked', v);
+        updateStations();
+      }
+
+      function updateStations() {
+        var selectedStations = $('#stations input:checked').map(function(i, input) {
+          return parseInt(input.value);
+        }).get();
+        var start = $('#origins input:checked').length > 0;
+        var end = $('#destinations input:checked').length > 0;
+
+        if (start) {
+          dimensions.start_terminal.filter(function(d) {
+            return selectedStations.indexOf(d) !== -1;
+          });
+        } else {
+          dimensions.start_terminal.filterAll();
+        }
+
+        if (end) {
+          dimensions.end_terminal.filter(function(d) {
+            return selectedStations.indexOf(d) !== -1;
+          });
+        } else {
+          dimensions.end_terminal.filterAll();
+        }
+
+        dc.redrawAll('journeys');
+      }
+
+      function countStations() {
+        var startCount = dimensions.start_terminal.group().all();
+        var endCount = dimensions.end_terminal.group().all();
+        var total = journeys.groupAll().value();
+
+        var start = $('#origins input:checked').length > 0;
+        var end = $('#destinations input:checked').length > 0;
+
+        $('#stations .badge').text('0.00%');
+
+        for (var i = 0; i < startCount.length; i++) {
+          var row = startCount[i];
+          if (!start || $('#' + row.key + ' input:checked').length > 0)
+            $('#' + row.key + ' .origin').text((row.value / total * 100).toFixed(2) + '%');
+        }
+
+        for (var i = 0; i < endCount.length; i++) {
+          var row = endCount[i];
+          if (!end || $('#' + row.key + 'input:checked').length > 0)
+            $('#' + row.key + ' .destination').text((row.value / total * 100).toFixed(2) + '%');
+        }
       }
     </script>
   </body>
