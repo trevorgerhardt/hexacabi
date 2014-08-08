@@ -123,13 +123,13 @@
       var spinner = new Spinner().spin();
       document.body.appendChild(spinner.el);
 
-      d3.json('/data/stations.json', function(err, data) {
+      d3.json('data/stations.json', function(err, data) {
         if (err) return window.alert(err);
         stations = data;
 
         for (var i in stations) stationsA.push(stations[i]);
 
-        d3.csv('/data/2014-1st-quarter.processed.csv', parseCSVRow, function(err, rows) {
+        d3.csv('data/2014-1st-quarter.processed.csv', parseCSVRow, function(err, rows) {
           if (err) return window.alert(err);
 
           json = rows;
