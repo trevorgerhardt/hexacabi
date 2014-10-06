@@ -1,6 +1,8 @@
 <!doctype html>
 <html>
   <head>
+    <meta charset="utf-8">
+
     <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/bootstrap/3.2.0/css/bootstrap.min.css">
     <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/dc/1.6.0/dc.css">
     <link rel="stylesheet" href="//api.tiles.mapbox.com/mapbox.js/v2.1.2/mapbox.css">
@@ -117,16 +119,17 @@
       var height = 150, width = 360;
 
       // Globals
-      var charts = {}, dimensions, currentDimension, journeys, json, map, showStations = false, stations, stationsA = [], featureLayer;
+      var charts = {}, dimensions, currentDimension, journeys, json, map, showStations = false, stations, terminalToCoords = {}, featureLayer;
 
       var spinner = new Spinner().spin();
       document.body.appendChild(spinner.el);
 
-      d3.json('/data/stations.json', function(err, data) {
+      d3.json('/data/stations.geojson', function(err, data) {
         if (err) return window.alert(err);
         stations = data;
-
-        for (var i in stations) stationsA.push(stations[i]);
+        stations.features.forEach(function(f) {
+          terminalToCoords[f.properties.terminalName] = f.geometry.coordinates;
+        });
 
         d3.csv('/data/processed.csv', parseCSVRow, function(err, rows) {
           if (err) return window.alert(err);
@@ -142,8 +145,7 @@
           }).setView([38.899316235331575, -77.0309829711914], 11);
 
           // GeoJSON feature layer
-          featureLayer = L.mapbox.featureLayer()
-            .loadURL('/data/stations.geojson')
+          featureLayer = L.mapbox.featureLayer(stations)
             .addTo(map);
 
           // Generate Hexbins
@@ -261,15 +263,15 @@
 
         // Generate hexbins
         var originsAndDestinations = data.map(function(d) {
-          var station = stations[d.start_terminal];
-          if (!station) return false;
-          var j = stations[d.start_terminal].coords;
+          var coords = terminalToCoords[d.start_terminal];
+          if (!coords) return false;
+          var j = coords.slice(0);
           j.origin = 1;
           return j;
         }).concat(data.map(function(d) {
-          var station = stations[d.end_terminal];
-          if (!station) return false;
-          var j = stations[d.end_terminal].coords;
+          var coords = terminalToCoords[d.end_terminal];
+          if (!coords) return false;
+          var j = coords.slice(0);
           j.origin = -1;
           return j;
         }));
@@ -319,13 +321,15 @@
         var $origins = $('#origins input');
         var $stations = $('#stations');
 
-        for (var i in stations) {
+        for (var i in stations.features) {
+          var station = stations.features[i];
+          var terminal = station.properties.terminalName;
           $stations.append(
-            '<div class="checkbox list-group-item" id="' + i + '">' +
+            '<div class="checkbox list-group-item" id="' + terminal + '">' +
               '<span class="badge destination"></span>' +
               '<span class="badge origin"></span>' +
               '<label>' +
-                '<input type="checkbox" value="' + i + '" checked>' + stations[i].name +
+                '<input type="checkbox" value="' + terminal + '" checked>' + station.properties.name +
               '</label>' +
             '</div>');
         }
