@@ -1,0 +1,43 @@
+#!/usr/bin/env node
+
+var fs = require('fs');
+
+var inputFile = process.argv[2];
+var outputFile = process.argv[3];
+
+var fileDoesntExist = !fs.existsSync(outputFile);
+
+var unprocessed = fs.readFileSync(inputFile, { encoding: 'utf8' }).split('\n').slice(1);
+var processed = '';
+
+if (fileDoesntExist) {
+  processed += [
+    'duration',
+    'start_time',
+    'start_station',
+    'end_time',
+    'end_station',
+    'bike',
+    'type'
+  ].join(',') + '\n';
+}
+
+for (var i = 0; i < unprocessed.length - 1; i++) {
+  var line = unprocessed[i].split(',');
+
+  processed += [
+    stringToSeconds(line[0]),
+    Date.parse(line[1]),
+    line[3],
+    Date.parse(line[4]),
+    line[6],
+    line[7] === 'Registered'
+  ].join(',') + '\n';
+}
+
+fs.appendFileSync(outputFile, processed, { encoding: 'utf8' });
+
+function stringToSeconds(s) {
+  s = s.split(' ');
+  return (parseInt(s[0]) * 60 * 60) + (parseInt(s[1]) * 60) + parseInt(s[2]);
+}
