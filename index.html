@@ -106,8 +106,8 @@
     <script src="//cdnjs.cloudflare.com/ajax/libs/d3/3.4.11/d3.js"></script>
     <script src="//cdnjs.cloudflare.com/ajax/libs/crossfilter/1.3.7/crossfilter.js"></script>
     <script src="//cdnjs.cloudflare.com/ajax/libs/dc/1.6.0/dc.js"></script>
-    <script src="d3.hexbin.v0.min.js"></script>
-    <script src="hexbin.js"></script>
+    <script src="www/d3.hexbin.v0.min.js"></script>
+    <script src="www/hexbin.js"></script>
     <script>
       // Set the mapbox access token
       L.mapbox.accessToken = 'pk.eyJ1IjoiY29udmV5YWwiLCJhIjoiMDliQURXOCJ9.9JWPsqJY7dGIdX777An7Pw';
@@ -124,14 +124,14 @@
       var spinner = new Spinner().spin();
       document.body.appendChild(spinner.el);
 
-      d3.json('/data/stations.geojson', function(err, data) {
+      d3.json('www/data/stations.geojson', function(err, data) {
         if (err) return window.alert(err);
         stations = data;
         stations.features.forEach(function(f) {
           terminalToCoords[f.properties.terminalName] = f.geometry.coordinates;
         });
 
-        d3.csv('/data/processed.csv', parseCSVRow, function(err, rows) {
+        d3.csv('www/data/processed.csv', parseCSVRow, function(err, rows) {
           if (err) return window.alert(err);
 
           json = rows;
