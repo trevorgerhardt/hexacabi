@@ -5,15 +5,12 @@ var fs = require('fs');
 var inputFile = process.argv[2];
 var outputFile = process.argv[3];
 
-console.log(inputFile, outputFile);
-process.exit(1);
-
-var fileDoesntExist = !fs.existsSync(outputFile);
+var appendHeader = !fs.existsSync(outputFile);
 
 var unprocessed = fs.readFileSync(inputFile, { encoding: 'utf8' }).split('\n').slice(1);
-var processed = '';
 
-if (fileDoesntExist) {
+var processed = '';
+if (appendHeader) {
   processed += [
     'duration',
     'start_time',
