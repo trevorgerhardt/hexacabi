@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
 
-    <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/bootstrap/3.2.0/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.1/css/bootstrap.min.css">
     <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/dc/1.6.0/dc.css">
     <link rel="stylesheet" href="//api.tiles.mapbox.com/mapbox.js/v2.1.2/mapbox.css">
 
@@ -33,6 +33,14 @@
         color: #e6550d;
       }
 
+      #color-scale {
+        height: 1em;
+        display: inline-block;
+        width: 10em;
+        vertical-align: middle;
+        background: linear-gradient(to right, #3182bd 0%, #e6550d 100%)
+      }
+
       .origin {
         background-color: #3182bd;
       }
@@ -45,11 +53,21 @@
     <div id="viz" style="display:none;">
       <div id="hexbin-map"></div>
       <div class="container">
-        <div class="row">
-          <div class="col-sm-12" id="data-count">
+        <div class="row" style="text-align: center;">
+          <div class="col-sm-4" id="data-count">
             <p>
               <strong class="filter-count"></strong> selected out of <strong class="total-count"></strong> records
-              <a id="showHideStations" class="pull-right btn btn-primary" href="javascript:showHideStations();">Show Stations</a>
+            </p>
+          </div>
+          <div class="col-sm-4">
+            <p>
+              Origin Heavy <span id="color-scale"></span> Destination Heavy
+            </p>
+          </div>
+          <div class="col-sm-4">
+            <p>
+              <a id="showHideStations" class="btn btn-primary" href="javascript:showHideStations();">Show Stations</a>
+              <button class="btn btn-info" data-toggle="modal" data-target="#aboutModal">About</button>
             </p>
           </div>
         </div>
@@ -79,16 +97,16 @@
         </div>
         <div class="row">
           <div class="col-sm-6">
-            <strong>Filter stations by</strong>
+            <strong>Only show journeys that</strong>
             <div class="list-group">
               <div class="checkbox list-group-item">
                 <label id="origins">
-                  <input type="checkbox" checked> Origins
+                  <input type="checkbox" checked> Start in the selected stations
                 </label>
               </div>
               <div class="checkbox list-group-item">
                 <label id="destinations">
-                  <input type="checkbox"> Destinations
+                  <input type="checkbox"> End in the selected stations
                 </label>
               </div>
             </div>
@@ -101,7 +119,37 @@
       </div>
     </div>
 
+    <div class="modal fade in" id="aboutModal">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <button type="button" class="close" data-dismiss="modal"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>
+            <h4 class="modal-title"><a href="http://github.com/trevorgerhardt/hexacabi">Hexacabi</a></h4>
+          </div>
+          <div class="modal-body">
+            <p>This is a data explorer for <a href="https://www.capitalbikeshare.com/trip-history-data">Capital Bikeshare</a> data. It's an easy way to cut through a few dimensions of the data to help make assumptions that you could investigate further.</p>
+            <p>The name comes from the hexagonal binning of the data. Binning is a term for grouping a dataset into discrete groups which can be spatial or attribute based. Rectangles are the simplest form of binning, but hexagons are used because they look rounder yet still interlock with their neighbors.</p>
+            <p>The hexagons are projected based on the bounds and zoom level of the map, then sized by the amount of trips that start and end in their bin. They are filled with a color based on their leaning of origin or destination heavy trips.</p>
+            <p>All the graphs and inputs are interactive. Play around and have fun!</p>
+            <p><a href="https://twitter.com/trevorgerhardt">- Trevor</a></p>
+            <h4>Links & Libraries</h4>
+            <ul>
+              <li><a href="http://d3js.org/">D3</a></li>
+              <li><a href="http://square.github.io/crossfilter/">Crossfilter</a></li>
+              <li><a href="http://dc-js.github.io/dc.js/">Dimensional Charting with D3 and Crossfilter</a></li>
+              <li><a href="http://bl.ocks.org/mbostock/4330486">Mike Bostock's Bivariate Hexbinning Example</a></li>
+              <li><a href="http://indiemaps.com/blog/2011/10/hexbins/">History of Hexbinning</a></li>
+            </ul>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+          </div>
+        </div><!-- /.modal-content -->
+      </div><!-- /.modal-dialog -->
+    </div><!-- /.modal -->
+
     <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/2.1.1/jquery.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.1/js/bootstrap.min.js"></script>
     <script src="//api.tiles.mapbox.com/mapbox.js/v2.1.2/mapbox.js"></script>
     <script src="//cdnjs.cloudflare.com/ajax/libs/spin.js/2.0.1/spin.min.js"></script>
     <script src="//cdnjs.cloudflare.com/ajax/libs/d3/3.4.11/d3.js"></script>
@@ -122,7 +170,11 @@
       // Globals
       var charts = {}, dimensions, currentDimension, journeys, json, map, showStations = false, stations, terminalToCoords = {}, featureLayer;
 
-      var spinner = new Spinner().spin();
+      $('#aboutModal').modal('show');
+
+      var spinner = new Spinner({
+        zIndex: 1000
+      }).spin();
       document.body.appendChild(spinner.el);
 
       d3.json('www/data/stations.geojson', function(err, data) {
@@ -180,7 +232,7 @@
         dimensions = createDimensions(journeys);
 
         // Current dimension
-        currentDimension = dimensions.date;
+        currentDimension = dimensions.month;
 
         charts.count = dc.dataCount('#data-count', 'journeys')
           .dimension(journeys)
@@ -230,7 +282,6 @@
 
       function createDimensions(j) {
         return {
-          date: j.dimension(function(d) { return d.start_time.valueOf(); }),
           day: j.dimension(function(d) { return d.start_time.getDay(); }),
           duration: j.dimension(function(d) { return d.duration / 60; }),
           hour: j.dimension(function(d) { return d.start_time.getHours(); }),
@@ -257,7 +308,7 @@
 
         var bounds = map.getBounds();
         var $map = document.getElementById('hexbin-map');
-        var rmax = (bounds.getNorth() - bounds.getSouth()) / 25;
+        var rmax = (bounds.getNorth() - bounds.getSouth()) / 30;
 
         // Allllll
         var data = currentDimension.top(Infinity);
@@ -288,10 +339,12 @@
               for (var j = 0; j < b.length; j++) {
                 b.color += b[j].origin;
               }
+              b.color /= b.length;
               if (b.color > max) max = b.color;
               if (b.color < min) min = b.color;
             }
-            return d3.scale.sqrt()
+
+            return d3.scale.linear()
               .domain([ min, max ])
               .range([ '#e6550d', '#3182bd' ]);
           },
@@ -321,6 +374,16 @@
         var $destinations = $('#destinations input');
         var $origins = $('#origins input');
         var $stations = $('#stations');
+
+        stations.features = stations.features.sort(function(a, b) {
+          if (a.properties.name > b.properties.name) {
+            return 1;
+          } else if (a.properties.name < b.properties.name) {
+            return -1;
+          } else {
+            return 0;
+          }
+        });
 
         for (var i in stations.features) {
           var station = stations.features[i];
@@ -407,6 +470,12 @@
         }
 
         updateStations();
+      }
+
+      function drunkBikers() {
+        charts.hour.filterAll();
+        charts.hour.filter([0, 5]);
+        dc.redrawAll('journeys');
       }
     </script>
   </body>

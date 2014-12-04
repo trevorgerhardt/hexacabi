@@ -1,21 +1,24 @@
 
-QUARTERS = 2014-1st-quarter 2014-2nd-quarter 2014-3rd-quarter
-URL = http://www.capitalbikeshare.com/assets/files/trip-history-data
+QUARTERS = 2013-4th-quarter 2014-1st-quarter 2014-2nd-quarter 2014-3rd-quarter
+URL := http://www.capitalbikeshare.com/assets/files/trip-history-data
 
-CSV = $(foreach quarter, $(QUARTERS), data/$(quarter).csv)
-ZIP = $(foreach quarter, $(QUARTERS), data/$(quarter).zip)
+CSV := $(shell echo $(shell find data -name '*.csv' -print))
+ZIP := $(foreach quarter, $(QUARTERS), data/$(quarter).zip)
 
-default: install www/data/processed.csv www/data/stations.geojson
+download: install $(ZIP) www/data/stations.geojson
 
-data/%.csv: $(ZIP)
-	@unzip data/$(basename $(notdir $@)).zip -d data
+www/data/processed.csv:
+	@bin/process-csv data/2013-4th-quarter.csv $@
+	@bin/process-csv data/2014-1st-quarter.csv $@
+	@bin/process-csv data/2014-Q2-Trips-History-Data.csv $@
+	@bin/process-csv data/2014-Q3-Trips-History-Data.csv $@
 
 data/%.zip:
 	@wget $(URL)/$(basename $(notdir $@)).zip --output-document=data/$(basename $(notdir $@)).zip
+	@unzip data/$(basename $(notdir $@)).zip -d data
 
-www/data/processed.csv: $(CSV)
-	@$(foreach csv, $(CSV), ./bin/process-csv $(csv) $@)
-	@wc -l $@
+data/%.csv:
+	@bin/process-csv $@ www/data/processed.csv
 
 www/data/stations.geojson:
 	@wget https://raw.githubusercontent.com/trevorgerhardt/capital-bikeshare-stations/master/stations.geojson --output-document=$@
@@ -26,4 +29,4 @@ install:
 push:
 	@aws s3 sync www s3://hexacabi --acl public-read
 
-.PHONY: install push
+.PHONY: build install push
