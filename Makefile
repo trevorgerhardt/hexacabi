@@ -27,6 +27,8 @@ install:
 	@mkdir -p data www/data
 
 push:
-	@aws s3 sync www s3://hexacabi --acl public-read
+	@aws s3 sync . s3://hexacabi \
+		--acl public-read \
+		--exclude .git
 
 .PHONY: build install push

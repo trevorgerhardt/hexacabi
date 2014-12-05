@@ -49,6 +49,16 @@
         background-color: #e6550d;
       }
     </style>
+
+    <script>
+      (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+        (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+        m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+      })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+      ga('create', 'UA-45854426-5', 'auto');
+      ga('send', 'pageview');
+    </script>
   <body>
     <div id="viz" style="display:none;">
       <div id="hexbin-map"></div>
@@ -127,8 +137,8 @@
             <h4 class="modal-title"><a href="http://github.com/trevorgerhardt/hexacabi">Hexacabi</a></h4>
           </div>
           <div class="modal-body">
-            <p>This is a data explorer for <a href="https://www.capitalbikeshare.com/trip-history-data">Capital Bikeshare</a> data. It's an easy way to cut through a few dimensions of the data to help make assumptions that you could investigate further.</p>
-            <p>The name comes from the hexagonal binning of the data. Binning is a term for grouping a dataset into discrete groups which can be spatial or attribute based. Rectangles are the simplest form of binning, but hexagons are used because they look rounder yet still interlock with their neighbors.</p>
+            <p>This is a data explorer for 2.8 million rows of <a href="https://www.capitalbikeshare.com/trip-history-data">Capital Bikeshare</a> data spanning Q4 2013 to Q3 2014. It's an easy way to cut through a few dimensions of the data to help make assumptions that you could investigate further.</p>
+            <p>The name Hexacabi comes from the hexagonal binning of the data. Binning is a term for grouping a dataset into discrete groups which can be spatial or attribute based. Rectangles are the simplest form of binning, but hexagons are used because they look rounder yet still interlock with their neighbors.</p>
             <p>The hexagons are projected based on the bounds and zoom level of the map, then sized by the amount of trips that start and end in their bin. They are filled with a color based on their leaning of origin or destination heavy trips.</p>
             <p>All the graphs and inputs are interactive. Play around and have fun!</p>
             <p><a href="https://twitter.com/trevorgerhardt">- Trevor</a></p>
